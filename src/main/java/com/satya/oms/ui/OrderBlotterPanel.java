@@ -1,5 +1,6 @@
 package com.satya.oms.ui;
 
+import com.satya.oms.aeron.AeronService;
 import com.satya.oms.model.FillRecord;
 import com.satya.oms.model.OrderRecord;
 import com.satya.oms.model.OrderStore;
@@ -76,10 +77,13 @@ public class OrderBlotterPanel extends JPanel {
     private final BlotterTableModel model = new BlotterTableModel();
     private final JTable            table = new JTable(model);
     private final JLabel            countLabel = new JLabel("0 orders");
+    private final JLabel            messageCountLabel = new JLabel("0 msgs");
     private final OrderStore        store;
+    private final AeronService      aeronService;
 
-    public OrderBlotterPanel(OrderStore store) {
+    public OrderBlotterPanel(OrderStore store, AeronService aeronService) {
         this.store = store;
+        this.aeronService = aeronService;
         buildUI();
 
         // listen for changes
@@ -104,9 +108,16 @@ public class OrderBlotterPanel extends JPanel {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
         headerBar.add(title, BorderLayout.WEST);
 
+        // Right side: message count + order count
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        rightPanel.setOpaque(false);
+        messageCountLabel.setFont(messageCountLabel.getFont().deriveFont(12f));
+        messageCountLabel.setForeground(new Color(100, 180, 100));
+        rightPanel.add(messageCountLabel);
         countLabel.setFont(countLabel.getFont().deriveFont(12f));
         countLabel.setForeground(Color.GRAY);
-        headerBar.add(countLabel, BorderLayout.EAST);
+        rightPanel.add(countLabel);
+        headerBar.add(rightPanel, BorderLayout.EAST);
         add(headerBar, BorderLayout.NORTH);
 
         // ---- table ----
@@ -212,6 +223,7 @@ public class OrderBlotterPanel extends JPanel {
 
         model.setRows(rows);
         countLabel.setText(orders.size() + " order" + (orders.size() == 1 ? "" : "s"));
+        messageCountLabel.setText(aeronService.getMessageCount() + " msgs received");
     }
 
     // ------------------------------------------------------------------

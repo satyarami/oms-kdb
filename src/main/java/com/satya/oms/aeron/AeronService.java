@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Manages one Aeron context:
@@ -50,6 +51,7 @@ public class AeronService implements AutoCloseable {
     private final Subscription  subscription;
     private final OrderStore    store;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicLong    messageCount = new AtomicLong(0);
     private Thread              subThread;
 
     public AeronService(OrderStore store) {
@@ -116,6 +118,7 @@ public class AeronService implements AutoCloseable {
     // Fragment handler — called on subscriber thread
     // ------------------------------------------------------------------
     private void onFragment(DirectBuffer buffer, int offset, int length, Header header) {
+        messageCount.incrementAndGet();
         headerDecoder.wrap(buffer, offset);
 
         if (headerDecoder.templateId() != OrderDecoder.TEMPLATE_ID) {
@@ -129,6 +132,10 @@ public class AeronService implements AutoCloseable {
                 headerDecoder.version());
 
         final long   orderId      = orderDecoder.orderId();
+        final long   symbolId     = orderDecoder.symbolId();
+        final byte   side         = (byte) orderDecoder.side().value();
+        final long   quantity     = orderDecoder.quantity();
+        final long   price        = orderDecoder.price();
         final String stateStr     = stateString(orderDecoder.state());
         final long   filledQty    = orderDecoder.filledQty();
         final long   remainingQty = orderDecoder.remainingQty();
@@ -151,7 +158,8 @@ public class AeronService implements AutoCloseable {
         // Dispatch to EDT
         final List<FillRecord> fillsCopy = List.copyOf(fills);
         SwingUtilities.invokeLater(() ->
-                store.applyExecution(orderId, stateStr, filledQty, remainingQty, fillsCopy, rawMessage));
+                store.applyExecution(orderId, symbolId, side, quantity, price,
+                        stateStr, filledQty, remainingQty, fillsCopy, rawMessage));
     }
 
     private static String stateString(OrderState s) {
@@ -167,6 +175,10 @@ public class AeronService implements AutoCloseable {
     // ------------------------------------------------------------------
     // Lifecycle
     // ------------------------------------------------------------------
+    public long getMessageCount() {
+        return messageCount.get();
+    }
+
     public boolean isConnected() {
         return publication.isConnected();
     }

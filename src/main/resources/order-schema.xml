@@ -41,11 +41,11 @@
         <field name="state"        id="6" type="OrderState"/>
         <field name="filledQty"    id="7" type="uint64"/>
         <field name="remainingQty" id="8" type="uint64"/>
-
-        <group name="fills" id="9" dimensionType="groupSizeEncoding">
-            <field name="fillQty"     id="10" type="uint64"/>
-            <field name="fillPrice"   id="11" type="uint64"/>
-            <field name="executionId" id="12" type="uint64"/>
+  <field name="remainingQty2" id="9" type="uint64"/>
+        <group name="fills" id="10" dimensionType="groupSizeEncoding">
+            <field name="fillQty"     id="11" type="uint64"/>
+            <field name="fillPrice"   id="12" type="uint64"/>
+            <field name="executionId" id="13" type="uint64"/>
         </group>
     </message>
 </sbe:messageSchema>

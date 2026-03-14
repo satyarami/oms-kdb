@@ -45,7 +45,7 @@ public class App {
         }
 
         OrderEntryPanel   entryPanel   = new OrderEntryPanel(aeron, store);
-        OrderBlotterPanel blotterPanel = new OrderBlotterPanel(store);
+        OrderBlotterPanel blotterPanel = new OrderBlotterPanel(store, aeron);
 
         JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
         tabs.setFont(tabs.getFont().deriveFont(Font.BOLD, 13f));

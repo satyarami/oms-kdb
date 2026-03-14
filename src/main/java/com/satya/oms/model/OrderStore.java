@@ -24,14 +24,34 @@ public class OrderStore {
     }
 
     /** Called from Aeron subscriber thread; dispatches to listeners (which post to EDT). */
-    public synchronized void applyExecution(long orderId, String state,
+    public synchronized void applyExecution(long orderId, long symbolId, byte side,
+                                             long quantity, long price, String state,
                                              long filledQty, long remainingQty,
                                              List<FillRecord> fills, String rawMessage) {
         OrderRecord rec = map.get(orderId);
-        if (rec != null) {
-            rec.applyExecution(state, filledQty, remainingQty, fills, rawMessage);
-            fireChanged(rec);
+        if (rec == null) {
+            // Order not created by this UI — create it from execution report
+            OrderRecord.Side orderSide = (side == 0) ? OrderRecord.Side.BUY : OrderRecord.Side.SELL;
+            String symbol = symbolIdToString(symbolId);
+            rec = new OrderRecord(orderId, symbol, orderSide, quantity, price);
+            map.put(orderId, rec);
+            ordered.add(rec);
         }
+        rec.applyExecution(state, filledQty, remainingQty, fills, rawMessage);
+        fireChanged(rec);
+    }
+
+    /** Convert symbolId to symbol string (simple mapping). */
+    private static String symbolIdToString(long symbolId) {
+        return switch ((int) symbolId) {
+            case 1 -> "AAPL";
+            case 2 -> "MSFT";
+            case 3 -> "GOOGL";
+            case 4 -> "AMZN";
+            case 5 -> "TSLA";
+            case 6 -> "NVDA";
+            default -> "SYM" + symbolId;
+        };
     }
 
     public synchronized List<OrderRecord> getOrders() {
