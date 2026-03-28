@@ -28,13 +28,13 @@
         <dependency>
             <groupId>org.agrona</groupId>
             <artifactId>agrona</artifactId>
-            <version>1.22.0</version>
+            <version>1.23.1</version>
         </dependency>
 
-        <!-- Aeron -->
+        <!-- Aeron Client -->
         <dependency>
             <groupId>io.aeron</groupId>
-            <artifactId>aeron-all</artifactId>
+            <artifactId>aeron-client</artifactId>
             <version>1.44.1</version>
         </dependency>
 
