@@ -32,7 +32,11 @@ public class KdbWriterMain {
                      .build();
              KdbConnection kdb = new KdbConnection(kdbHost, kdbPort)) {
 
-            kdb.connect();
+            // Connect with retries – kdb+ may not be up yet
+            if (!kdb.reconnect()) {
+                LOG.error("Cannot connect to kdb+ at {}:{} – exiting", kdbHost, kdbPort);
+                System.exit(1);
+            }
 
             KdbWriter writer = new KdbWriter(queue, kdb);
 

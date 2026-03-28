@@ -52,8 +52,13 @@ public class KdbWriter implements Runnable {
                 });
 
                 if (!read) {
-                    // nothing new – back off a little
-                    Thread.yield();
+                    // nothing new – back off to avoid busy-spinning
+                    try {
+                        Thread.sleep(1);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         }
@@ -94,7 +99,23 @@ public class KdbWriter implements Runnable {
             kdb.execute(upsertQ);
             LOG.info("Upserted order {} state={}", orderId, state);
         } catch (Exception e) {
-            LOG.error("Failed to upsert order {}", orderId, e);
+            LOG.error("Failed to upsert order {} – attempting reconnect", orderId, e);
+            if (!kdb.reconnect()) {
+                LOG.error("Reconnect failed – skipping order {}", orderId);
+                return;
+            }
+            // Retry once after reconnect
+            try {
+                String upsertQ = String.format(
+                        "upsertOrder `orderId`symbolId`side`quantity`price`state`filledQty`remainingQty!" +
+                                "(%dj;%di;`%s;%dj;%dj;`%s;%dj;%dj)",
+                        orderId, symbolId, side, quantity, price, state, filledQty, remainingQty);
+                kdb.execute(upsertQ);
+                LOG.info("Upserted order {} state={} (after reconnect)", orderId, state);
+            } catch (Exception e2) {
+                LOG.error("Retry failed for order {} after reconnect", orderId, e2);
+                return;
+            }
         }
 
         // ── Insert fills ──────────────────────────────────────
@@ -115,7 +136,20 @@ public class KdbWriter implements Runnable {
                     kdb.execute(insertQ);
                     LOG.info("  Inserted fill execId={} qty={} price={}", executionId, fillQty, fillPrice);
                 } catch (Exception e) {
-                    LOG.error("  Failed to insert fill execId={}", executionId, e);
+                    LOG.error("  Failed to insert fill execId={} – attempting reconnect", executionId, e);
+                    if (kdb.reconnect()) {
+                        try {
+                            String insertQ = String.format(
+                                    "insertFill[%dj;`fillQty`fillPrice`executionId!(%dj;%dj;%dj)]",
+                                    orderId, fillQty, fillPrice, executionId);
+                            kdb.execute(insertQ);
+                            LOG.info("  Inserted fill execId={} (after reconnect)", executionId);
+                        } catch (Exception e2) {
+                            LOG.error("  Retry failed for fill execId={}", executionId, e2);
+                        }
+                    } else {
+                        LOG.error("  Reconnect failed – skipping fill execId={}", executionId);
+                    }
                 }
             }
         }

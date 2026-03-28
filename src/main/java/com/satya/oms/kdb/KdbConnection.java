@@ -6,13 +6,25 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 
 /**
- * Thin wrapper around the kx {@link c} client, providing connect / execute / close.
+ * Thin wrapper around the kx {@link c} client, providing connect / execute / close
+ * with connection-timeout and automatic reconnection support.
  */
 public class KdbConnection implements Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(KdbConnection.class);
+
+    /** TCP connect timeout in milliseconds. */
+    private static final int CONNECT_TIMEOUT_MS = 5_000;
+
+    /** Maximum number of reconnection attempts before giving up. */
+    private static final int MAX_RECONNECT_ATTEMPTS = 10;
+
+    /** Delay between reconnection attempts in milliseconds. */
+    private static final long RECONNECT_DELAY_MS = 3_000;
 
     private final String host;
     private final int port;
@@ -23,11 +35,46 @@ public class KdbConnection implements Closeable {
         this.port = port;
     }
 
-    /** Open a connection to the kdb+ process. */
+    /**
+     * Open a connection to the kdb+ process.
+     * Uses a bounded timeout so the caller never blocks indefinitely.
+     */
     public void connect() throws c.KException, IOException {
-        LOG.info("Connecting to kdb+ at {}:{}", host, port);
+        LOG.info("Connecting to kdb+ at {}:{} (timeout {}ms)", host, port, CONNECT_TIMEOUT_MS);
+
+        // Probe the port first with a timeout so we don't block forever
+        try (Socket probe = new Socket()) {
+            probe.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
+        }
+        // Port is reachable – open the real kx connection
         connection = new c(host, port);
         LOG.info("Connected to kdb+ at {}:{}", host, port);
+    }
+
+    /**
+     * Attempt to reconnect, retrying up to {@link #MAX_RECONNECT_ATTEMPTS} times.
+     *
+     * @return {@code true} if reconnection succeeded
+     */
+    public boolean reconnect() {
+        for (int attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+            LOG.warn("Reconnect attempt {}/{} to kdb+ at {}:{}", attempt, MAX_RECONNECT_ATTEMPTS, host, port);
+            closeQuietly();
+            try {
+                connect();
+                return true;
+            } catch (Exception e) {
+                LOG.warn("Reconnect attempt {} failed: {}", attempt, e.getMessage());
+                try {
+                    Thread.sleep(RECONNECT_DELAY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        LOG.error("All {} reconnect attempts to kdb+ exhausted", MAX_RECONNECT_ATTEMPTS);
+        return false;
     }
 
     /**
@@ -63,6 +110,15 @@ public class KdbConnection implements Closeable {
             LOG.info("Closing kdb+ connection to {}:{}", host, port);
             connection.close();
             connection = null;
+        }
+    }
+
+    /** Close silently, ignoring exceptions. */
+    private void closeQuietly() {
+        try {
+            close();
+        } catch (IOException ignored) {
+            // best-effort
         }
     }
 }
