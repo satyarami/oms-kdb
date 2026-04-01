@@ -1,5 +1,9 @@
 @echo off
 REM Start KDB Writer (Chronicle Queue -> kdb+) in a separate console window
+
+REM Ensure q is running on port 5000 before starting KDB Writer
+call "%~dp0start-q.bat"
+
 cd /d C:\Project\oms-kdb
 
 REM Chronicle Queue requires --add-opens on Java 17+
