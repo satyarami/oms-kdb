@@ -53,7 +53,7 @@ oms-kdb/
 |---|---|---|
 | Java | 21+ | Required by `maven.compiler.source` |
 | Maven | 3.8+ | Build tool |
-| Aeron Media Driver | — | Must be running (shared IPC). Started by oms-core's `MediaDriverMain`. |
+| Aeron Media Driver | — | Must be running (shared IPC). Started by oms-common's `MediaDriverMain`. |
 | oms-core | running | Publishes SBE-encoded Order messages on Aeron stream 1002 |
 | oms-common | installed | `mvn install` in the oms-common project first (provides SBE codecs) |
 | kdb+ | 4.x | Listening on the configured port (default `localhost:5000`) |
@@ -163,7 +163,7 @@ This connects to kdb+ and runs every statement in `schema.q` to create the `orde
 
 ### 3. Start the Aeron Media Driver
 
-_(from the oms-core project)_
+_(from the oms-common project)_
 
 ```bash
 # oms-core/scripts
