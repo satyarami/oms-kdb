@@ -78,6 +78,12 @@ public class KdbWriter implements Runnable {
         int blockLength = headerDecoder.blockLength();
         int version = headerDecoder.version();
 
+        // Only process Order messages (templateId=1); skip gateway-internal messages
+        if (headerDecoder.templateId() != OrderDecoder.TEMPLATE_ID) {
+            LOG.debug("Skipping non-Order message templateId={}", headerDecoder.templateId());
+            return;
+        }
+
         // Decode Order body
         orderDecoder.wrap(buffer, headerLen, blockLength, version);
 
